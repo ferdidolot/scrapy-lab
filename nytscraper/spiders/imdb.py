@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import re
+import os
+import uuid
+
+from elasticsearch import Elasticsearch
+
+ELASTIC_API_URL_HOST = os.environ['ELASTIC_API_URL_HOST']
+ELASTIC_API_URL_PORT = os.environ['ELASTIC_API_URL_PORT']
+ELASTIC_API_USERNAME = os.environ['ELASTIC_API_USERNAME']
+ELASTIC_API_PASSWORD = os.environ['ELASTIC_API_PASSWORD']
+
+es=Elasticsearch(host=ELASTIC_API_URL_HOST,
+                 scheme='https',
+                 port=ELASTIC_API_URL_PORT,
+                 http_auth=(ELASTIC_API_USERNAME,ELASTIC_API_PASSWORD))
 
 class ImdbSpider(scrapy.Spider):
     name = 'imdb'
@@ -29,7 +43,10 @@ class ImdbSpider(scrapy.Spider):
             actor_id_list.append(link)
 
         count = 0
-        for character in response.xpath('//td[@class="character"]//div//text()').extract():
+        # for character in response.xpath('//td[@class="character"]//div//text()').extract():
+        for character in response.css('td[class="character"]::text').extract():
+            # print("item")
+            # print(character)
             if character.strip() :
                 temp = re.sub( '\s+', ' ', character.strip(' \t \r \n').replace('\n', ' ') ).strip()
                 item = dict()
@@ -45,6 +62,18 @@ class ImdbSpider(scrapy.Spider):
                                          callback=self.parse_actor_bio)
                 request.meta['item'] = item
                 yield request
+                # es.index(index='imdb',
+                #          doc_type='movies',
+                #          id=uuid.uuid4(),
+                #          body={
+                #              "movie_id": item['movie_id'],
+                #              "movie_name": item['movie_name'],
+                #              "movie_year": item['movie_year'],
+                #              "actor_name": item['actor_name'],
+                #              "actor_id": item['actor_id'],
+                #              "role_name": item['role_name']
+                #          })
+
                 request2 = scrapy.Request('https://www.imdb.com/name/' + item['actor_id'] + '/', callback=self.parse_next_movie)
                 yield request2
                 count = count + 1
@@ -86,6 +115,19 @@ class ImdbSpider(scrapy.Spider):
         else:
             item['birth_date'] = ""
         item['height'] = height
+        es.index(index='imdb',
+                 doc_type='movies',
+                 id=uuid.uuid4(),
+                 body={
+                     "movie_id": item['movie_id'],
+                     "movie_name": item['movie_name'],
+                     "movie_year": item['movie_year'],
+                     "actor_name": item['actor_name'],
+                     "actor_id": item['actor_id'],
+                     "role_name": item['role_name'],
+                     "height": item['height'],
+                     "birth_date": item['birth_date']
+                 })
 
         yield item
 
