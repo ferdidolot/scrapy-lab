@@ -95,7 +95,7 @@ class ImdbSpider(scrapy.Spider):
 
         for s in response.css('h4[class="li_group"]::text').extract():
             if s.find("Spouse") != -1:
-                spouse = s[s.find("(")+1:s.find(")")]
+                spouse = int(s[s.find("(")+1:s.find(")")])
 
         if height:
             height = height[-1].strip()
