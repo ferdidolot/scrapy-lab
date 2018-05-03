@@ -45,8 +45,7 @@ class ImdbSpider(scrapy.Spider):
         count = 0
         # for character in response.xpath('//td[@class="character"]//div//text()').extract():
         for character in response.css('td[class="character"]::text').extract():
-            # print("item")
-            # print(character)
+
             if character.strip() :
                 temp = re.sub( '\s+', ' ', character.strip(' \t \r \n').replace('\n', ' ') ).strip()
                 item = dict()
@@ -62,17 +61,6 @@ class ImdbSpider(scrapy.Spider):
                                          callback=self.parse_actor_bio)
                 request.meta['item'] = item
                 yield request
-                # es.index(index='imdb',
-                #          doc_type='movies',
-                #          id=uuid.uuid4(),
-                #          body={
-                #              "movie_id": item['movie_id'],
-                #              "movie_name": item['movie_name'],
-                #              "movie_year": item['movie_year'],
-                #              "actor_name": item['actor_name'],
-                #              "actor_id": item['actor_id'],
-                #              "role_name": item['role_name']
-                #          })
 
                 request2 = scrapy.Request('https://www.imdb.com/name/' + item['actor_id'] + '/', callback=self.parse_next_movie)
                 yield request2
@@ -103,6 +91,12 @@ class ImdbSpider(scrapy.Spider):
     def parse_actor_bio(self, response):
         birth_date = response.css('td time::attr(datetime)').extract()
         height = response.css('table[id="overviewTable"] td::text' ).extract()
+        spouse = 0
+
+        for s in response.css('h4[class="li_group"]::text').extract():
+            if s.find("Spouse") != -1:
+                spouse = s[s.find("(")+1:s.find(")")]
+
         if height:
             height = height[-1].strip()
         else:
@@ -115,6 +109,8 @@ class ImdbSpider(scrapy.Spider):
         else:
             item['birth_date'] = ""
         item['height'] = height
+        item['spouse'] = spouse
+
         es.index(index='imdb',
                  doc_type='movies',
                  id=uuid.uuid4(),
@@ -126,7 +122,8 @@ class ImdbSpider(scrapy.Spider):
                      "actor_id": item['actor_id'],
                      "role_name": item['role_name'],
                      "height": item['height'],
-                     "birth_date": item['birth_date']
+                     "birth_date": item['birth_date'],
+                     "spouse" : item['spouse']
                  })
 
         yield item
