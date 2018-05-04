@@ -16,6 +16,8 @@ es=Elasticsearch(host=ELASTIC_API_URL_HOST,
                  port=ELASTIC_API_URL_PORT,
                  http_auth=(ELASTIC_API_USERNAME,ELASTIC_API_PASSWORD))
 
+pairset = set()
+
 class ImdbSpider(scrapy.Spider):
     name = 'imdb'
     allowed_domains = ['www.imdb.com']
@@ -47,9 +49,12 @@ class ImdbSpider(scrapy.Spider):
         for character in response.css('td[class="character"]::text').extract():
 
             if character.strip() :
+                if((actor_id_list[count].split("/")[2], movie_id) in pairset):
+                    print("actor and movie existed")
+                    continue
+                pairset.add((actor_id_list[count].split("/")[2], movie_id))
                 temp = re.sub( '\s+', ' ', character.strip(' \t \r \n').replace('\n', ' ') ).strip()
                 item = dict()
-
                 item['movie_name'] = movie_name
                 item['movie_id'] = movie_id
                 item['movie_year'] = movie_year
